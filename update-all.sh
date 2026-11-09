@@ -5,6 +5,8 @@ shopt -s nullglob
 
 OLD_PWD=$(pwd)
 
+git pull
+
 mkdir -p cross deb src
 
 for i in ${BUILD}; do
