@@ -1,0 +1,9 @@
+# Exclude stuff that will be downloaded...
+cross/*.iso
+cross/*.part
+
+# built debs
+deb/*
+
+# external sources
+src/*
