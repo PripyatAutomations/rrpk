@@ -6,7 +6,7 @@ shopt -s nullglob
 mkdir -p cross deb src
 
 cd src
-for in ${BUILD}; do
+for i in ${BUILD}; do
    git --depth=1 clone https://github.com/PripyatAutomations/$i
 done
 cd ..
