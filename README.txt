@@ -21,3 +21,15 @@ Right now the scripts do the following:
 	fetch-all.sh		Fetch all source modules
 	uninstall-nopkg.sh	Uninstall unpackaged builds
 	update-all.sh		Update all sources
+
+
+USAGE
+=====
+ When first cloned, do ./fetch-all.sh to grab the sources.
+
+
+After that, you will probably want to use build-deb.sh or similar script for
+your distro. It will build packages and install them as they are built,
+since the libraries must be installed to build the rest of this mess.
+
+sudo will be used by default to accomplish installation -- sorry!
