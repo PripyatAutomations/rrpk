@@ -33,3 +33,10 @@ your distro. It will build packages and install them as they are built,
 since the libraries must be installed to build the rest of this mess.
 
 sudo will be used by default to accomplish installation -- sorry!
+
+
+
+FRESH REINSTALL
+===============
+Do something like this:
+	./cleanup.sh; sudo ./uninstall-debs.sh; ./build-debs.sh
