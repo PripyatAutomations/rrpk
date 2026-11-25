@@ -5,12 +5,14 @@ cd "$(dirname "$0")"
 exec perl - "$@" $BUILD <<'PERL'
 use strict;
 use warnings;
-my $vendor = 0;
-if (@ARGV && $ARGV[0] eq '--include-vendor') {
-   shift @ARGV;
-   $vendor = 1;
+my ($vendor,$tests)=(0,0);
+while (@ARGV && $ARGV[0] =~ /^-/) {
+   my $arg=shift @ARGV;
+   if ($arg eq '--include-vendor') { $vendor=1; }
+   elsif ($arg eq '--include-tests') { $tests=1; }
+   else { die "Usage: ./countlines.sh [--include-vendor] [--include-tests]\n"; }
 }
-die "Usage: ./countlines.sh [--include-vendor]\n" if grep /^-/, @ARGV;
+die "Usage: ./countlines.sh [--include-vendor] [--include-tests]\n" if grep /^-/, @ARGV;
 my %ext = (
    c=>'C', h=>'C headers', cc=>'C++', cpp=>'C++', cxx=>'C++',
    hh=>'C++ headers', hpp=>'C++ headers', hxx=>'C++ headers',
@@ -22,6 +24,11 @@ my %ext = (
    asm=>'Assembly', mk=>'Make', cmake=>'CMake', php=>'PHP',
    ps1=>'PowerShell', bat=>'Batch',
 );
+sub is_test {
+   my ($p)=@_;
+   return $p =~ m{(?:^|/)(?:test|tests|testing|testdata|test_data|__tests__|fixtures)(?:/|$)}i
+       || $p =~ m{(?:^|/)(?:test[-_.]|tests[-_.]|.*[-_.]test[-_.]|.*[-_.]tests[-_.])}i;
+}
 sub language {
    my ($p)=@_;
    return 'Make' if $p =~ m{(?:^|/)(?:GNUmakefile|[Mm]akefile|debian/rules)$};
@@ -118,6 +125,7 @@ for my $module ('rrpk',@ARGV) {
    while (my $path=<$git>) {
       chomp $path;
       next if $seen{$path}++;
+      next if !$tests && is_test($path);
       next if $path =~ m{(?:^|/)(?:build|node_modules|__pycache__)(?:/|$)};
       next if !$vendor && $path =~ m{(?:^|/)(?:vendor|third_party|third-party|ext)(?:/|$)};
       next if !$vendor && $path =~ /(?:\.generated\.|\.min\.js$|\.min\.css$)/;
@@ -172,5 +180,6 @@ printf "Code-bearing lines: %d; comment-only/blank lines: %d\n",
 print "Physical source lines (including comments and blanks); tracked working-tree files only.\n";
 print $vendor ? "Vendored paths and recognized generated filenames included.\n" :
    "Vendored paths and recognized generated filenames excluded (use --include-vendor to include).\n";
+print $tests ? "Test sources included.\n" : "Test sources excluded (use --include-tests to include).\n";
 exit($missing ? 1 : 0);
 PERL
