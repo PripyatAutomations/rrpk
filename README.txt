@@ -21,6 +21,7 @@ Right now the scripts do the following:
 	fetch-all.sh		Fetch all source modules
 	uninstall-nopkg.sh	Uninstall unpackaged builds
 	update-all.sh		Update all sources
+	countlines.sh		Count source lines by module and language (Perl + Git)
 
 
 USAGE
