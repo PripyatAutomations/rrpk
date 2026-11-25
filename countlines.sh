@@ -40,30 +40,30 @@ sub noncode {
    my $dash=$lang =~ /^(?:SQL|Lua)$/;
    my $html=$lang eq 'HTML';
    if ($lang eq 'Perl') {
-      if ($state eq 'POD') {
-         $state='' if $line =~ /^=cut\b/;
+      if ($$state eq 'POD') {
+         $$state='' if $line =~ /^=cut\b/;
          return 1;
       }
       if ($line =~ /^=(?:pod|head[1-6]|over|item|back|begin|end|for|encoding)\b/) {
-         $state='POD'; return 1;
+         $$state='POD'; return 1;
       }
    }
    return 1 if $line =~ /^\s*(?:REM(?:\s|$)|::)/i && $lang eq 'Batch';
    return 1 if $line =~ /^\s*[;#]/ && $lang eq 'Assembly';
    my $code=0;
    while (length $line) {
-      if (length $state) {
-         my $i=index($line,$state);
+      if (length $$state) {
+         my $i=index($line,$$state);
          return !$code if $i<0;
-         substr($line,0,$i+length($state),'');
-         $state=''; next;
+         substr($line,0,$i+length($$state),'');
+         $$state=''; next;
       }
       $line =~ s/^\s+//;
       last unless length $line;
-      if ($cstyle && $line =~ s{^/\*}{}) { $state='*/'; next; }
-      if ($html && $line =~ s/^<!--//) { $state='-->'; next; }
-      if ($lang eq 'PowerShell' && $line =~ s/^<#//) { $state='#>'; next; }
-      if ($lang eq 'Lua' && $line =~ s/^--\[(=*)\[//) { $state=']'.$1.']'; next; }
+      if ($cstyle && $line =~ s{^/\*}{}) { $$state='*/'; next; }
+      if ($html && $line =~ s/^<!--//) { $$state='-->'; next; }
+      if ($lang eq 'PowerShell' && $line =~ s/^<#//) { $$state='#>'; next; }
+      if ($lang eq 'Lua' && $line =~ s/^--\[(=*)\[//) { $$state=']'.$1.']'; next; }
       last if ($hash && $line =~ /^#/) || ($slash && $line =~ m{^//}) ||
               ($dash && $line =~ /^--/);
       $code=1;
@@ -73,6 +73,30 @@ sub noncode {
       $line =~ s{^[^/"'#<\x60-]+}{} or substr($line,0,1,'');
    }
    return !$code;
+}
+# Fail loudly if the classifier ever treats all source as comments.
+{
+   my $state='';
+   my @cases=(
+      ['int x = 1;', 'C', 0],
+      ['#include <stdio.h>', 'C', 0],
+      ['// comment', 'C', 1],
+      ['/* start', 'C', 1],
+      [' * inside', 'C', 1],
+      [' */ int y;', 'C', 0],
+      ['char *s = "/*";', 'C', 0],
+      ['int z; // comment', 'C', 0],
+      ['   ', 'C', 1],
+      ['# comment', 'Shell', 1],
+      ['echo hello', 'Shell', 0],
+      ['/* css */', 'CSS', 1],
+      ['a { color: red; }', 'CSS', 0],
+   );
+   for my $case (@cases) {
+      my ($line,$lang,$expected)=@$case;
+      die "Comment scanner self-test failed: $lang: $line\n"
+         if (noncode($line,$lang,\$state) ? 1 : 0) != $expected;
+   }
 }
 my (%counts,%grand,%files,%noncode,%noncode_grand);
 my $missing=0;
