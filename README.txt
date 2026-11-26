@@ -31,14 +31,17 @@ USAGE
 
 
 After that, you will probably want to use build-deb.sh or similar script for
-your distro. It will build packages and install them as they are built,
-since the libraries must be installed to build the rest of this mess.
+your distro. It will update tree then build packages and install them as they
+are built, since the libraries must be installed to build the rest of this mess.
 
-sudo will be used by default to accomplish installation -- sorry!
+*** sudo will be used by default to accomplish installation -- sorry! ***
 
+./update-all.sh will pull latest without building it
 
 
 FRESH REINSTALL
 ===============
 Do something like this:
-	./cleanup.sh; sudo ./uninstall-debs.sh; ./build-debs.sh
+	./cleanup.sh; sudo ./uninstall-$DISTRO.sh; ./build-$DISTRO.sh
+
+	or use ./reinstall-debs.sh or the like if it exists!
