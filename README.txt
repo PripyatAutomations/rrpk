@@ -1,6 +1,7 @@
 Rusty Rig Remote Packaging Kit (R3PK)
 -------------------------------------
-You'll need to drop ISOs for the desired targets in iso/
+You'll need to drop ISOs for the desired targets in iso/ if you want to use
+cross-building.
 
 For now only fedora and win64 use VM building.
 
