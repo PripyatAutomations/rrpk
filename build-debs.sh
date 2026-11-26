@@ -1,4 +1,3 @@
-
 #!/bin/bash
 set -euo pipefail
 shopt -s nullglob
@@ -17,7 +16,34 @@ for x in ${BUILD}; do
     echo "=== Building $source ($dir) ==="
     rm -f -- "src/${source}_"*.changes
 
-    make -C "$dir" deb
+    # Only the binary package version changes. Restore the tracked release
+    # changelog even on a failed build; never invoke bump-version.
+    (
+        cd "$dir"
+        exec 9>"$(git rev-parse --git-path rrpk-deb-build.lock)"
+        flock 9
+        changelog=debian/changelog
+        backup=$(mktemp)
+        cp -p "$changelog" "$backup"
+        trap 'cp -p "$backup" "$changelog"; rm -f "$backup"' EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        base=$(dpkg-parsechangelog -S Version)
+        counter="$(git rev-parse --git-path rrpk-deb-build-counter)"
+        last=0
+        if [[ -f "$counter" ]]; then read -r last < "$counter"; fi
+        [[ "$last" =~ ^[0-9]+$ ]] || { echo "Invalid Debian build counter" >&2; exit 1; }
+        stamp=$(date -u +%s%N)
+        if (( stamp <= last )); then stamp=$((last + 1)); fi
+        printf '%s\n' "$stamp" > "$counter"
+        version="${base}+build${stamp}"
+        dpkg --validate-version "$version"
+        # Change only the version on the top entry, retaining release notes.
+        sed -i "1s/([^)]*)/($version)/" "$changelog"
+        [[ $(dpkg-parsechangelog -S Version) == "$version" ]]
+        echo "Debian build version: $version (release: $base)"
+        make deb
+    )
 
     changes=( "src/${source}_"*.changes )
     ((${#changes[@]})) || {
