@@ -29,14 +29,15 @@ for x in ${BUILD}; do
         trap 'exit 130' INT
         trap 'exit 143' TERM
         base=$(dpkg-parsechangelog -S Version)
-        counter="$(git rev-parse --git-path rrpk-deb-build-counter)"
+        # Separate counter for each release, local to this checkout.
+        counter="$(git rev-parse --git-path "rrpk-deb-revision-$base")"
         last=0
         if [[ -f "$counter" ]]; then read -r last < "$counter"; fi
-        [[ "$last" =~ ^[0-9]+$ ]] || { echo "Invalid Debian build counter" >&2; exit 1; }
-        stamp=$(date -u +%s%N)
-        if (( stamp <= last )); then stamp=$((last + 1)); fi
-        printf '%s\n' "$stamp" > "$counter"
-        version="${base}+build${stamp}"
+        [[ "$last" =~ ^(0|[1-9][0-9]{0,8})$ ]] || { echo "Invalid Debian build counter" >&2; exit 1; }
+        revision=$((last + 1))
+        printf '%s\n' "$revision" > "$counter"
+        # +r sorts after the previous +build timestamp suffix in dpkg.
+        version="${base}+r${revision}"
         dpkg --validate-version "$version"
         # Change only the version on the top entry, retaining release notes.
         sed -i "1s/([^)]*)/($version)/" "$changelog"
