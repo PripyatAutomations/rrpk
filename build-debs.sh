@@ -9,6 +9,14 @@ mkdir -p deb
 
 ./update-all.sh
 
+# Do not spend time compiling when dpkg already has unfinished operations.
+audit=$(dpkg --audit)
+if [[ -n "$audit" ]]; then
+    printf 'Unfinished dpkg operations:\n%s\n' "$audit" >&2
+    echo "Repair the package manager before building (inspect dpkg --audit)." >&2
+    exit 1
+fi
+
 for x in ${BUILD}; do
     dir="src/$x"
     source=$(sed -n 's/^Source:[[:space:]]*//p' "$dir/debian/control" | head -n1)
@@ -85,6 +93,10 @@ for x in ${BUILD}; do
     printf '  %s\n' "${packages[@]}"
 
     echo "=== Installing $source ==="
-    sudo apt install -y -- "${packages[@]}"
+    if ! sudo apt-get install -y -- "${packages[@]}"; then
+        echo "Installation of $source returned an APT/dpkg error; inspect the package names above." >&2
+        echo "Built packages remain in deb/. Check dpkg --audit before retrying." >&2
+        exit 1
+    fi
 done
 
