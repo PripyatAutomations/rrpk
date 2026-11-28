@@ -68,4 +68,37 @@ if ((${#missing[@]})); then
     printf 'Missing pkg-config modules after dependency installation: %s\n' "${missing[*]}" >&2
     exit 1
 fi
+# Verify the actual source package requirements too. The internal SDKs
+# are produced by build-debs.sh in dependency order, so exclude only
+# those named packages. Let dpkg evaluate versions, alternatives and
+# build profiles rather than duplicating Debian's dependency parser.
+. .modules
+internal='^(librustyaxe-dev|librustyirc-dev|librustyscript-dev|librustyui-dev|librustyui-curses-dev|librrprotocol-dev)
+
+for component in ${BUILD}; do
+    control="src/$component/debian/control"
+    if [[ ! -r "$control" ]]; then
+        echo "Skipping metadata check for $component: source not fetched."
+        continue
+    fi
+    # Parse the source stanza with Dpkg's native control/dependency API.
+    deps=$(perl -MDpkg::Control -MDpkg::Deps -e '
+        my ($file, $internal) = @ARGV;
+        my $control = Dpkg::Control->new(type => Dpkg::Control::CTRL_INFO_SRC());
+        $control->load($file) or die "Cannot read $file";
+        my @fields = grep { defined && length } map { $control->{$_} }
+            qw(Build-Depends Build-Depends-Arch Build-Depends-Indep);
+        my $deps = deps_parse(join(", ", @fields));
+        defined $deps or die "Invalid dependencies in $file";
+        my @external = grep {
+            !($_->isa("Dpkg::Deps::Simple") && $_->{package} =~ /$internal/)
+        } $deps->get_deps();
+        print join(", ", map { $_->output() } @external);
+    ' "$control" "$internal")
+    if [[ -n "$deps" ]] && ! dpkg-checkbuilddeps -d "$deps" "$control"; then
+        echo "External build dependencies still missing for $component." >&2
+        echo "Check the dependency versions and active Debian build profiles." >&2
+        exit 1
+    fi
+done
 echo "Debian build dependencies are ready."
