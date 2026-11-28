@@ -22,6 +22,10 @@ for x in ${BUILD}; do
     source=$(sed -n 's/^Source:[[:space:]]*//p' "$dir/debian/control" | head -n1)
 
     echo "=== Building $source ($dir) ==="
+    if ! (cd "$dir" && dpkg-checkbuilddeps); then
+        echo "Unmet build dependencies for $source. Run sudo ./install-deb-dep.sh and check that preceding RustyRig packages installed successfully." >&2
+        exit 1
+    fi
     rm -f -- "src/${source}_"*.changes
 
     # Only the binary package version changes. Restore the tracked release
@@ -96,6 +100,29 @@ for x in ${BUILD}; do
     if ! sudo apt-get install -y -- "${packages[@]}"; then
         echo "Installation of $source returned an APT/dpkg error; inspect the package names above." >&2
         echo "Built packages remain in deb/. Check dpkg --audit before retrying." >&2
+        exit 1
+    fi
+    # Verify the exact packages built, not just APT exit status or an older
+    # installed library. Never proceed with a partially configured SDK.
+    for deb in "${packages[@]}"; do
+        name=$(dpkg-deb -f "$deb" Package)
+        arch=$(dpkg-deb -f "$deb" Architecture)
+        version=$(dpkg-deb -f "$deb" Version)
+        if [[ "$arch" == all ]]; then
+            query="$name"
+        else
+            query="$name:$arch"
+        fi
+        installed=$(dpkg-query -W -f='${Status} ${Version}' "$query" 2>/dev/null || true)
+        if [[ "$installed" != "install ok installed $version" ]]; then
+            echo "ERROR: $name:$arch $version was not fully installed. Stopping before the next source package." >&2
+            echo "Built packages remain in deb/. Inspect dpkg --audit." >&2
+            exit 1
+        fi
+    done
+    audit=$(dpkg --audit)
+    if [[ -n "$audit" ]]; then
+        printf 'Unfinished dpkg operations after installing %s:\n%s\n' "$source" "$audit" >&2
         exit 1
     fi
 done

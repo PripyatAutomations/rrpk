@@ -25,12 +25,32 @@ fi
 audit=$(dpkg --audit)
 if [[ -n "$audit" ]]; then
     printf 'Warning: dpkg has unfinished package operations:\n%s\n' "$audit" >&2
-    echo "APT may retry unrelated failed packages during installation." >&2
+    echo "Repair the package manager before installing build dependencies (sudo dpkg --configure -a)." >&2
+    exit 1
 fi
 
 if ! apt-get install -- "${packages[@]}"; then
     echo "Dependency installation failed. Resolve the APT/dpkg errors above before building." >&2
     echo "Inspect pending packages with: dpkg --audit" >&2
+    exit 1
+fi
+
+# APT can unpack packages without successfully configuring them. Check
+# every requested package, including SDKs without a reliable .pc file.
+missing_packages=()
+for package in "${packages[@]}"; do
+    status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)
+    if [[ "$status" != "install ok installed" ]]; then
+        missing_packages+=("$package")
+    fi
+done
+if ((${#missing_packages[@]})); then
+    printf 'Build dependencies not fully installed: %s\n' "${missing_packages[*]}" >&2
+    exit 1
+fi
+audit=$(dpkg --audit)
+if [[ -n "$audit" ]]; then
+    printf 'Unfinished dpkg operations:\n%s\n' "$audit" >&2
     exit 1
 fi
 
